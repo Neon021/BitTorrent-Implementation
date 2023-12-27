@@ -7,7 +7,6 @@ use std::{env, usize};
 #[allow(dead_code)]
 fn decode_bencoded_value(encoded_value: &str) -> (serde_json::Value, &str) {
     // If encoded_value starts with a digit, it's a number
-
     match encoded_value.chars().next() {
         Some('i') => {
             if let Some((n, rest)) =
@@ -32,6 +31,23 @@ fn decode_bencoded_value(encoded_value: &str) -> (serde_json::Value, &str) {
                 rest = remainder;
             }
             return (values.into(), &rest[1..]);
+        }
+        Some('d') => {
+            let mut dict = serde_json::Map::new();
+            let mut rest = encoded_value.split_at(1).1;
+            while !rest.is_empty() && !rest.starts_with('e') {
+                let (k, remainder) = decode_bencoded_value(rest);
+                let k = match k {
+                    serde_json::Value::String(k) => k,
+                    k => {
+                        panic!("dict keys must be strings not {k:?}");
+                    }
+                };
+                let (v, remainder) = decode_bencoded_value(remainder);
+                dict.insert(k, v);
+                rest = remainder;
+            }
+            return (dict.into(), &rest[1..]);
         }
         Some('0'..='9') => {
             if let Some((len, rest)) = encoded_value.split_once(':') {
